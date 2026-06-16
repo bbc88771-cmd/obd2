@@ -1,36 +1,72 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+import 'dart:async';
+import 'dart:convert';
+import 'package:flutter_bluetooth_serial_ble/flutter_bluetooth_serial_ble.dart';
+import 'obd_transport.dart';
 
-    <!-- Bluetooth Classic + BLE (Android 12+) -->
-    <uses-permission android:name="android.permission.BLUETOOTH_SCAN"
-        android:usesPermissionFlags="neverForLocation" />
-    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+/// Транспорт для классических SPP Bluetooth ELM327 (самый частый тип адаптера).
+/// Работает ТОЛЬКО на Android — у iOS нет публичного SPP-доступа,
+/// там используем BLE или Wi-Fi.
+class BtClassicTransport implements ObdTransport {
+  final String? deviceAddress; // MAC; если null — берём первый спаренный OBD
 
-    <!-- Для Android 11 и ниже -->
-    <uses-permission android:name="android.permission.BLUETOOTH" />
-    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
-    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+  BluetoothConnection? _connection;
+  StreamSubscription? _sub;
 
-    <!-- Wi-Fi транспорт -->
-    <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+  final _incoming = StreamController<List<int>>.broadcast();
+  final _state = StreamController<LinkState>.broadcast();
 
-    <uses-feature android:name="android.hardware.bluetooth_le" android:required="false" />
+  BtClassicTransport({this.deviceAddress});
 
-    <application
-        android:label="OBD Scanner"
-        android:icon="@mipmap/ic_launcher">
-        <activity
-            android:name=".MainActivity"
-            android:exported="true"
-            android:launchMode="singleTop"
-            android:theme="@style/LaunchTheme"
-            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
-            android:hardwareAccelerated="true"
-            android:windowSoftInputMode="adjustResize">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
-    </application>
-</manifest>
+  @override
+  Stream<List<int>> get incoming => _incoming.stream;
+  @override
+  Stream<LinkState> get linkState => _state.stream;
+  @override
+  bool get isConnected => _connection?.isConnected ?? false;
+
+  Future<String?> _resolveAddress() async {
+    if (deviceAddress != null) return deviceAddress;
+    // среди спаренных устройств ищем по имени
+    final bonded = await FlutterBluetoothSerial.instance.getBondedDevices();
+    for (final d in bonded) {
+      final n = (d.name ?? "").toUpperCase();
+      if (n.contains("OBD") || n.contains("ELM")) return d.address;
+    }
+    return null;
+  }
+
+  @override
+  Future<void> connect() async {
+    _state.add(LinkState.connecting);
+    final addr = await _resolveAddress();
+    if (addr == null) {
+      _state.add(LinkState.error);
+      throw Exception("Спаренный OBD-адаптер не найден. "
+          "Сначала спарь его в настройках Bluetooth.");
+    }
+
+    _connection = await BluetoothConnection.toAddress(addr);
+
+    _sub = _connection!.input?.listen(
+      (bytes) => _incoming.add(bytes),
+      onDone: () => _state.add(LinkState.disconnected),
+    );
+
+    _state.add(LinkState.connected);
+  }
+
+  @override
+  Future<void> write(String command) async {
+    if (_connection == null) throw Exception("Нет соединения");
+    _connection!.output.add(Uint8List.fromList(utf8.encode("$command\r")));
+    await _connection!.output.allSent;
+  }
+
+  @override
+  Future<void> disconnect() async {
+    await _sub?.cancel();
+    await _connection?.close();
+    _connection = null;
+    _state.add(LinkState.disconnected);
+  }
+}
