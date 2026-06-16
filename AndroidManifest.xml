@@ -1,0 +1,46 @@
+name: Build Android APK
+
+# Запускается при каждом пуше в main, или вручную кнопкой в GitHub.
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Забираем код
+        uses: actions/checkout@v4
+
+      # Flutter сам тянет нужный Android SDK
+      - name: Ставим Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Ставим Java 17 (нужна для Gradle)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Подтягиваем зависимости
+        run: flutter pub get
+
+      - name: Прогоняем тесты парсеров
+        run: flutter test
+
+      # Если в репозитории нет папок android/ios целиком — досоздаём платформенные файлы.
+      # (в архиве лежат только манифест и Info.plist-сниппет)
+      - name: Достраиваем платформенные файлы
+        run: flutter create . --platforms=android
+
+      - name: Собираем release APK
+        run: flutter build apk --release
+
+      - name: Выкладываем APK как артефакт
+        uses: actions/upload-artifact@v4
+        with:
+          name: obd-scanner-apk
+          path: build/app/outputs/flutter-apk/app-release.apk

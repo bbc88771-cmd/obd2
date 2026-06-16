@@ -1,18 +1,36 @@
-<!-- Добавь эти ключи в ios/Runner/Info.plist (внутри корневого <dict>) -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-<key>NSBluetoothAlwaysUsageDescription</key>
-<string>Приложению нужен Bluetooth для связи с OBD-адаптером ELM327</string>
+    <!-- Bluetooth Classic + BLE (Android 12+) -->
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN"
+        android:usesPermissionFlags="neverForLocation" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
 
-<key>NSBluetoothPeripheralUsageDescription</key>
-<string>Приложению нужен Bluetooth для связи с OBD-адаптером ELM327</string>
+    <!-- Для Android 11 и ниже -->
+    <uses-permission android:name="android.permission.BLUETOOTH" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
 
-<key>NSLocalNetworkUsageDescription</key>
-<string>Доступ к локальной сети нужен для подключения к Wi-Fi OBD-адаптеру</string>
+    <!-- Wi-Fi транспорт -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
-<!-- ВАЖНО для Wi-Fi адаптеров: разрешаем нешифрованное TCP-соединение
-     с локальным адресом адаптера (192.168.0.10) -->
-<key>NSAppTransportSecurity</key>
-<dict>
-    <key>NSAllowsLocalNetworking</key>
-    <true/>
-</dict>
+    <uses-feature android:name="android.hardware.bluetooth_le" android:required="false" />
+
+    <application
+        android:label="OBD Scanner"
+        android:icon="@mipmap/ic_launcher">
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTop"
+            android:theme="@style/LaunchTheme"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+            android:hardwareAccelerated="true"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>
