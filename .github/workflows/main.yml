@@ -1,7 +1,6 @@
 name: Build Android APK
 on:
   push:
-    branches: [ main, master ]
   workflow_dispatch:
 
 jobs:
@@ -9,13 +8,28 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Разложить файлы по папкам Flutter
+        run: |
+          mkdir -p lib/core lib/transport lib/state lib/ui
+          place() { f=$(find . -name "$1" -not -path "./lib/*" | head -1); if [ -n "$f" ]; then mv "$f" "$2/"; echo "OK: $1 -> $2"; else echo "ПРОПУЩЕН (нет файла): $1"; fi; }
+          place obd_transport.dart lib/transport
+          place ble_transport.dart lib/transport
+          place bt_classic_transport.dart lib/transport
+          place wifi_transport.dart lib/transport
+          place obd_connection.dart lib/core
+          place request_queue.dart lib/core
+          place obd_parsers.dart lib/core
+          place obd_service.dart lib/core
+          place connection_provider.dart lib/state
+          place gauge_widget.dart lib/ui
+          place dashboard_screen.dart lib/ui
+          place main.dart lib
+          echo "=== Итоговое дерево lib ==="; find lib -type f
+
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
       - run: flutter pub get
       - run: flutter create . --platforms=android
       - run: flutter build apk --release
@@ -23,4 +37,3 @@ jobs:
         with:
           name: obd-scanner-apk
           path: build/app/outputs/flutter-apk/app-release.apk
-          
