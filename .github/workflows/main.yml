@@ -9,10 +9,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Разложить файлы по папкам Flutter
+      - name: Разложить файлы по папкам
         run: |
           mkdir -p lib/core lib/transport lib/state lib/ui
-          place() { f=$(find . -name "$1" -not -path "./lib/*" | head -1); if [ -n "$f" ]; then mv "$f" "$2/"; echo "OK: $1 -> $2"; else echo "ПРОПУЩЕН (нет файла): $1"; fi; }
+          place() { f=$(find . -name "$1" -not -path "./lib/*" | head -1); [ -n "$f" ] && mv "$f" "$2/" && echo "OK: $1"; }
           place obd_transport.dart lib/transport
           place ble_transport.dart lib/transport
           place bt_classic_transport.dart lib/transport
@@ -25,7 +25,15 @@ jobs:
           place gauge_widget.dart lib/ui
           place dashboard_screen.dart lib/ui
           place main.dart lib
-          echo "=== Итоговое дерево lib ==="; find lib -type f
+          find lib -type f
+
+      - name: Убрать несовместимый BT Classic
+        run: |
+          sed -i '/flutter_bluetooth_serial_ble/d' pubspec.yaml
+          rm -f lib/transport/bt_classic_transport.dart
+          sed -i '/bt_classic_transport.dart/d' lib/state/connection_provider.dart
+          sed -i 's/return BtClassicTransport();/return BleTransport();/' lib/state/connection_provider.dart
+          echo "=== pubspec ==="; cat pubspec.yaml
 
       - uses: subosito/flutter-action@v2
         with:
