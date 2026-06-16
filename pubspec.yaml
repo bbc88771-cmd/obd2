@@ -1,39 +1,18 @@
-name: Build Android APK
-on:
-  push:
-  workflow_dispatch:
+name: obd_scanner
+description: OBD-II diagnostics via ELM327
+publish_to: "none"
+version: 1.0.0+1
 
-jobs:
-  build-apk:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+environment:
+  sdk: "^3.12.0"
 
-      - name: Разложить файлы по папкам Flutter
-        run: |
-          mkdir -p lib/core lib/transport lib/state lib/ui
-          place() { f=$(find . -name "$1" -not -path "./lib/*" | head -1); if [ -n "$f" ]; then mv "$f" "$2/"; echo "OK: $1 -> $2"; else echo "ПРОПУЩЕН (нет файла): $1"; fi; }
-          place obd_transport.dart lib/transport
-          place ble_transport.dart lib/transport
-          place bt_classic_transport.dart lib/transport
-          place wifi_transport.dart lib/transport
-          place obd_connection.dart lib/core
-          place request_queue.dart lib/core
-          place obd_parsers.dart lib/core
-          place obd_service.dart lib/core
-          place connection_provider.dart lib/state
-          place gauge_widget.dart lib/ui
-          place dashboard_screen.dart lib/ui
-          place main.dart lib
-          echo "=== Итоговое дерево lib ==="; find lib -type f
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_riverpod: ^2.5.1
+  flutter_blue_plus: ^1.32.0
+  flutter_bluetooth_serial_ble: ^0.4.0
+  permission_handler: ^11.3.0
 
-      - uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-      - run: flutter pub get
-      - run: flutter create . --platforms=android
-      - run: flutter build apk --release
-      - uses: actions/upload-artifact@v4
-        with:
-          name: obd-scanner-apk
-          path: build/app/outputs/flutter-apk/app-release.apk
+flutter:
+  uses-material-design: true
